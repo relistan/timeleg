@@ -11,58 +11,70 @@ char month[LEN_MONTH] = "";
 char day[LEN_DAY] = "";
 char year[LEN_YEAR] = "";
 char time[LEN_TIME] = "";
-char timezone[LEN_TIMEZONE] = "";
+char tz[LEN_TIMEZONE] = "";
 
-char *lookupMonth(char *month);
+// Defined below
+char *get_month(char *month);
+char *get_day(char *month);
+
 %}
 
-doc = (ignored* date ignored*)+
-date = time? ignored* ( date_iso | date_forward | date_reverse ) ignored* time? { printf("%s-%s-%s %s %s\n", year, lookupMonth(month), day, time, timezone); }
+doc = (date | .)+
+date = time? ignored* date_any ignored* time? tz? 										{ printf("%s-%s-%s %s %s\n", year, get_month(month), get_day(day), time, tz); }
 
 # Dates -----
-date_forward  = (year sep+ month sep+ day) | (month sep+ day sep+ year) | (month sep+ day) | (month sep+ year) sep+ time?
-date_reverse  = (day sep* month sep* year) | (day sep* month) | (year sep* month) sep+ time?
+date_any      = date_forward | date_reverse | date_iso
+date_forward  = (year sep+ month sep+ day) | (month+ sep+ day sep+ year) | (month sep+ day sep+ year_short) | (month sep+ day) | (month sep+ year)
+date_reverse  = (day sep* month sep* year) | (day sep* month) | (year sep* month)
 date_iso      = (year '-' month '-' day 'T' time) | (year '-' month '-' day) 
 
 # Months -----
 month = < ( month_long | month_short | month_numeric ) >  									{ strncpy((char *)(&month), yytext, LEN_MONTH); }
 
-month_short = ('Jan' | 'Feb' | 'Mar' | 'Apr' | 'May' | 'Jun' | 'Jul' | 'Aug' | 'Sep' | 'Oct' | 'Nov' | 'Dec')
-month_long = ('January' | 'February' | 'March' | 'April' | 'May' | 'June' | 'July' | 'August' | 'September' | 'October' | 'November' | 'December')
+month_short   = ('Jan' | 'Feb' | 'Mar' | 'Apr' | 'May' | 'Jun' | 'Jul' | 'Aug' | 'Sep' | 'Oct' | 'Nov' | 'Dec')
+month_long    = ('January' | 'February' | 'March' | 'April' | 'May' | 'June' | 'July' | 'August' | 'September' | 'October' | 'November' | 'December')
 month_numeric = !year ( '12' | '11' | '10' | ('0'? '1') | ('0'? '2') | ('0'? '3') | ('0'? '4') | ('0'? '5') | ('0'? '6') | ('0'? '7') | ('0'? '8') | ('0'? '9') ) !':' 
 
 # Days -----
 day  = !year !':' < [0-9][0-9]? > ( 'st' | 'nd' | 'rd' | 'th')? !':'						{ strncpy((char *)(&day), yytext, LEN_DAY); }
 
 # Years -----
-year = < [0-9][0-9][0-9][0-9] >																{ strncpy((char *)(&year), yytext, LEN_YEAR); }
+year       = < [0-9][0-9][0-9][0-9] >														{ strncpy((char *)(&year), yytext, LEN_YEAR); }
 year_short = < [0-9][0-9] >																	{ snprintf(year, LEN_YEAR, "20%s", yytext); }
 
 # Times -----
-time = < ( time_short | time_full ) > timezone?												{ strncpy((char *)(&time), yytext, LEN_TIME); }
-time_full =  [0-2]? [0-9] ':' [0-9][0-9] ':' [0-9][0-9] (sep* 'AM' | 'PM')?
-time_short = [0-2]? [0-9] ':' [0-9][0-9] !':' sep* ('AM' | 'PM')
+time           = < time_short | time_full >	( ([.,][0-9]+) | (sep* 'AM' | 'PM') )?			{ strncpy((char *)(&time), yytext, LEN_TIME); }
+time_full      = ( [0-2]? [0-9] ':' [0-9][0-9] ':' [0-9][0-9] )
+time_short     = ( [0-2]? [0-9] ':' [0-9][0-9] !':' )
 
 # Timezone -----
-timezone = 'Z' | ('+' | '-' [0-9][0-9]? ':'? [0-9][0-9] )									{ strncpy((char *)(&timezone), yytext, LEN_TIMEZONE); }
+tz = <'Z' | ( ('+' | '-') [0-9][0-9] (':'? [0-9][0-9]) )>									{ strncpy((char *)(&tz), yytext, LEN_TIMEZONE); }
 
 # Misc -----
 sep = [\t ,/.\-]
-ignored = !(day | month | year | time | timezone) .
+ignored = !day !month !year !tz !time .
 
-# No character to match is EOF
+# No character to match == EOF
 eof = !.
-eol = [\n\r]
 
 %%
 
+// Dictionaries we need to look up month numeric values
 char* long_months[] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
 char* short_month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 char* int_str[] =     { "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12" };
 
-char *lookupMonth(char *month) {
+// Turn short or long month names or short numeric values into double-digit numeric values
+char *get_month(char *month) {
 	if (strnlen(month, LEN_MONTH) == 1) {
-		snprintf(month, LEN_MONTH, "%s", short_month[atoi(month)]);
+		int index = atoi(month);
+	   	if (index > 12) {
+	   		return ""; // Some other weird match
+	   	}	
+		snprintf(month, LEN_MONTH, "%s", int_str[index-1]);
+		return month;
+	}
+	if (strnlen(month, LEN_MONTH) == 2) {
 		return month;
 	}
 	for (int i = 0; i < 12; i++) {
@@ -76,9 +88,16 @@ char *lookupMonth(char *month) {
 	return month;
 }
 
+char *get_day(char *day) {
+	if (strnlen(day, LEN_DAY) == 2) {
+		return day;
+	}
+	return int_str[atoi(day)-1];
+}
+
 int main() {
 	while (yyparse()) {
-		month[0] = '\0'; day[0] = '\0'; year[0] = '\0'; time[0] = '\0'; timezone[0] = '\0';
+		month[0] = '\0'; day[0] = '\0'; year[0] = '\0'; time[0] = '\0'; tz[0] = '\0';
 	}
 	return 0;
 }
