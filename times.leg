@@ -16,12 +16,17 @@ char tz[LEN_TIMEZONE] = "";
 // Defined below
 char *get_month(char *month);
 char *get_day(char *month);
-
 %}
 
-doc = (date | .)+
-date = time? ignored* date_any ignored* time? tz? 										{ printf("%s-%s-%s %s %s\n", year, get_month(month), get_day(day), time, tz); }
+# 11/24/2021 12:00 PM
 
+# ENTRYPOINT
+doc = line eof
+line = (date | .)+ 
+date = time? ignored* date_any ignored* time? tz? 										{
+	   																						printf("%s-%s-%s %s %s\n", year, get_month(month), get_day(day), time, tz);
+																							month[0] = '\0'; day[0] = '\0'; year[0] = '\0'; time[0] = '\0'; tz[0] = '\0';
+	   																					}
 # Dates -----
 date_any      = date_forward | date_reverse | date_iso
 date_forward  = (year sep+ month sep+ day) | (month+ sep+ day sep+ year) | (month sep+ day sep+ year_short) | (month sep+ day) | (month sep+ year)
@@ -36,7 +41,7 @@ month_long    = ('January' | 'February' | 'March' | 'April' | 'May' | 'June' | '
 month_numeric = !year ( '12' | '11' | '10' | ('0'? '1') | ('0'? '2') | ('0'? '3') | ('0'? '4') | ('0'? '5') | ('0'? '6') | ('0'? '7') | ('0'? '8') | ('0'? '9') ) !':' 
 
 # Days -----
-day  = !year !':' < [0-9][0-9]? > ( 'st' | 'nd' | 'rd' | 'th')? !':'						{ strncpy((char *)(&day), yytext, LEN_DAY); }
+day  = !':' < ('31' | '30' | [0-2]?[0-9]) > ( 'st' | 'nd' | 'rd' | 'th')? !':'				{ strncpy((char *)(&day), yytext, LEN_DAY); }
 
 # Years -----
 year       = < [0-9][0-9][0-9][0-9] >														{ strncpy((char *)(&year), yytext, LEN_YEAR); }
@@ -45,7 +50,7 @@ year_short = < [0-9][0-9] >																	{ snprintf(year, LEN_YEAR, "20%s", y
 # Times -----
 time           = < time_short | time_full >	( ([.,][0-9]+) | (sep* 'AM' | 'PM') )?			{ strncpy((char *)(&time), yytext, LEN_TIME); }
 time_full      = ( [0-2]? [0-9] ':' [0-9][0-9] ':' [0-9][0-9] )
-time_short     = ( [0-2]? [0-9] ':' [0-9][0-9] !':' )
+time_short     = ( [0-2]? [0-9] ':' [0-9][0-9] &sep )
 
 # Timezone -----
 tz = <'Z' | ( ('+' | '-') [0-9][0-9] (':'? [0-9][0-9]) )>									{ strncpy((char *)(&tz), yytext, LEN_TIMEZONE); }
@@ -56,6 +61,7 @@ ignored = !day !month !year !tz !time .
 
 # No character to match == EOF
 eof = !.
+eol = [\n\r]
 
 %%
 
