@@ -8,10 +8,15 @@ blue () {
 	echo -n "[1;34m$1[0m"
 }
 
+red () {
+	echo -n "[1;31m$1[0m"
+}
+
 STATUS=0
 
-green "                Testing" && echo
-green "---------------------------------------------" && echo
+blue "                                ---------------------------------------------" && echo
+blue "                                                Testing" && echo
+blue "                                ---------------------------------------------" && echo
 echo
 
 while IFS= read -r line; do
@@ -27,8 +32,22 @@ while IFS= read -r line; do
 		STATUS=1
 	fi
 
+	if [[ $STATUS -eq 0 ]]; then
+		output=`printf "%-30s %s" "$output" "[1;32mOK[0m"`
+	fi
+
 	blue " * "
 	printf "%47s --> %s\n" "$line" "$output"
 done < date_formats.txt
+
+if [[ $STATUS -eq 0 ]]; then
+	green "                                ---------------------------------------------" && echo
+	green "                                [1;32mAll tests passed[0m" && echo
+	green "                                ---------------------------------------------" && echo
+else
+	red "                                ---------------------------------------------" && echo
+	red "                                [1;31mSome tests failed[0m" && echo
+	red "                                ---------------------------------------------" && echo
+fi
 
 exit $STATUS

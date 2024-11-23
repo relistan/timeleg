@@ -16,6 +16,7 @@ char tz[LEN_TIMEZONE] = "";
 // Defined below
 char *get_month(char *month);
 char *get_day(char *month);
+char* get_time(char* time);
 %}
 
 # 11/24/2021 12:00 PM
@@ -24,39 +25,42 @@ char *get_day(char *month);
 doc = line eof
 line = (date | .)+ 
 date = time? ignored* date_any ignored* time? tz? 										{
-	   																						printf("%s-%s-%s %s %s\n", year, get_month(month), get_day(day), time, tz);
+	   																						printf("%s-%s-%s %s %s\n", year, get_month(month), get_day(day), get_time(time), tz);
 																							month[0] = '\0'; day[0] = '\0'; year[0] = '\0'; time[0] = '\0'; tz[0] = '\0';
 	   																					}
 # Dates -----
-date_any      = date_forward | date_reverse | date_iso
+date_any      = date_iso | date_forward | date_reverse
 date_forward  = (year sep+ month sep+ day) | (month+ sep+ day sep+ year) | (month sep+ day sep+ year_short) | (month sep+ day) | (month sep+ year)
 date_reverse  = (day sep* month sep* year) | (day sep* month) | (year sep* month)
-date_iso      = (year '-' month '-' day 'T' time) | (year '-' month '-' day) 
+date_iso      = (year '-' month '-' day [T ] time time_millis? tz) | (year '-' month '-' day) 
 
 # Months -----
-month = < ( month_long | month_short | month_numeric ) >  									{ strncpy((char *)(&month), yytext, LEN_MONTH); }
+month = < ( month_long | month_short | month_numeric ) >  								{ strncpy((char *)(&month), yytext, LEN_MONTH); }
 
 month_short   = ('Jan' | 'Feb' | 'Mar' | 'Apr' | 'May' | 'Jun' | 'Jul' | 'Aug' | 'Sep' | 'Oct' | 'Nov' | 'Dec')
 month_long    = ('January' | 'February' | 'March' | 'April' | 'May' | 'June' | 'July' | 'August' | 'September' | 'October' | 'November' | 'December')
 month_numeric = !year ( '12' | '11' | '10' | ('0'? '1') | ('0'? '2') | ('0'? '3') | ('0'? '4') | ('0'? '5') | ('0'? '6') | ('0'? '7') | ('0'? '8') | ('0'? '9') ) !':' 
 
 # Days -----
-day  = !':' < ('31' | '30' | [0-2]?[0-9]) > ( 'st' | 'nd' | 'rd' | 'th')? !':'				{ strncpy((char *)(&day), yytext, LEN_DAY); }
+day  = !':' < ('31' | '30' | [0-2]?[0-9]) > ( 'st' | 'nd' | 'rd' | 'th')? !':'			{ strncpy((char *)(&day), yytext, LEN_DAY); }
 
 # Years -----
-year       = < [0-9][0-9][0-9][0-9] >														{ strncpy((char *)(&year), yytext, LEN_YEAR); }
-year_short = < [0-9][0-9] >																	{ snprintf(year, LEN_YEAR, "20%s", yytext); }
+year       = < [0-9][0-9][0-9][0-9] >													{ strncpy((char *)(&year), yytext, LEN_YEAR); }
+year_short = < [0-9][0-9] >																{ snprintf(year, LEN_YEAR, "20%s", yytext); }
 
 # Times -----
-time           = < time_short | time_full >	( ([.,][0-9]+) | (sep* 'AM' | 'PM') )?			{ strncpy((char *)(&time), yytext, LEN_TIME); }
-time_full      = ( [0-2]? [0-9] ':' [0-9][0-9] ':' [0-9][0-9] )
-time_short     = ( [0-2]? [0-9] ':' [0-9][0-9] &sep )
+time        = < (time_short | time_full) >												{ strncpy((char *)(&time), yytext, LEN_TIME); }
+time_full   = ( [0-2]? [0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) &( time_millis | (space* 'AM' | 'PM') )?
+time_short  = [0-2]? [0-9] ':' [0-9][0-9] &space ('AM' | 'PM')?
+time_millis = ([.,][0-9]+)
 
 # Timezone -----
-tz = <'Z' | ( ('+' | '-') [0-9][0-9] (':'? [0-9][0-9]) )>									{ strncpy((char *)(&tz), yytext, LEN_TIMEZONE); }
+tz = <('Z' | ( ('+' | '-') [0-9][0-9] (':'? [0-9][0-9]) ))>								{ strncpy((char *)(&tz), yytext, LEN_TIMEZONE); }
+
 
 # Misc -----
 sep = [\t ,/.\-]
+space = [\t ]
 ignored = !day !month !year !tz !time .
 
 # No character to match == EOF
@@ -99,6 +103,45 @@ char *get_day(char *day) {
 		return day;
 	}
 	return int_str[atoi(day)-1];
+}
+
+char* get_time(char* time) {
+	char *formatted[LEN_TIME];
+    int hours = 0, minutes = 0, seconds = 0;
+    int part = 0; // 0: hours, 1: minutes, 2: seconds
+    int temp_value = 0;
+
+    for (int i = 0; time[i] != '\0'; i++) {
+        if (time[i] >= '0' && time[i] <= '9') { // Check if the character is a number
+            // Accumulate the number
+            temp_value = temp_value * 10 + (time[i] - '0');
+        } else if (time[i] == ':') {
+            // Assign the accumulated number to the corresponding part
+            if (part == 0) {
+                hours = temp_value;
+            } else if (part == 1) {
+                minutes = temp_value;
+            }
+            part++;
+            temp_value = 0; // Reset temp_value for the next part
+        } else {
+            return time;
+        }
+    }
+
+    // Assign the last accumulated value to the appropriate part
+    if (part == 0) {
+        hours = temp_value;
+    } else if (part == 1) {
+        minutes = temp_value;
+    } else if (part == 2) {
+        seconds = temp_value;
+    }
+
+    // Format the output string
+    snprintf(formatted, LEN_TIME, "%02d:%02d:%02d", hours, minutes, seconds);
+	memcpy(time, formatted, LEN_TIME);
+    return time;
 }
 
 int main() {
