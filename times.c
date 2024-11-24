@@ -1113,6 +1113,10 @@ char* get_time(char* time) {
     int part = 0; // 0: hours, 1: minutes, 2: seconds
     int temp_value = 0;
 
+    if (strnlen(time, LEN_TIME) == 0) {
+        return time;
+    }
+
     for (int i = 0; time[i] != '\0'; i++) {
         if (time[i] >= '0' && time[i] <= '9') { // Check if the character is a number
             // Accumulate the number
