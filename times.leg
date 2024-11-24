@@ -18,7 +18,8 @@ char *get_month(char *month);
 char *get_day(char *month);
 char* get_time(char* time);
 
-//#define YY_DEBUG 1
+// Uncomment to enable debugging (verbose!) output
+// #define YY_DEBUG 1
 %}
 
 # ENTRYPOINT
@@ -31,7 +32,7 @@ date = time? ignored* date_any ignored* time? ignored* tz?	        					{
 # Dates -----
 date_any      = date_iso | date_forward | date_reverse
 date_forward  = (year sep+ month sep+ day) | (month+ sep+ day sep+ year) | (month sep+ day sep+ year_short) | (month sep+ day) | (month sep+ year)
-date_reverse  = (day sep* month sep* year) | (day sep* month) | (year sep* month)
+date_reverse  = (day sep+ month sep+ year) | (day sep+ month) | (year sep+ month)
 date_iso      = (year '-' month '-' day [T ] time time_millis? tz) | (year '-' month '-' day) 
 
 # Months -----
@@ -51,7 +52,7 @@ year_short = < [0-9][0-9] >																{ snprintf(year, LEN_YEAR, "20%s", yy
 # Times -----
 time        = < (time_short | time_full) >												{ strncpy((char *)(&time), yytext, LEN_TIME); }
 time_full   = ( [0-2]? [0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) &( time_millis | (space* 'AM' | 'PM') )?
-time_short  = ( [0-2]? [0-9] ':' [0-9][0-9] ) &space ('AM' | 'PM')? 
+time_short  = ( [0-2]? [0-9] ':' [0-9][0-9] ) (&space | &eol) ('AM' | 'PM')? 
 time_millis = ( [.,][0-9]+ )
 
 # Timezone -----
