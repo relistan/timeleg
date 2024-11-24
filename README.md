@@ -8,6 +8,8 @@ large number of date formats and attempts to parse them.
 The parser is written in C and is generated from `times.leg` using pegleg.
 Currently it just prints out the parsed date.
 
+The supported formats are found in [dateformats.txt](dateformats.txt).
+
 ## Building
 
 To build the parser, you need to have pegleg installed. You can get it from
