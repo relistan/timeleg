@@ -14,6 +14,7 @@ red () {
 
 # Overall test status
 STATUS=0
+FAILCOUNT=0
 
 blue "                                ---------------------------------------------" && echo
 blue "                                                Testing" && echo
@@ -68,6 +69,7 @@ while IFS= read -r line; do
 
 	if [[ $job_status -eq 1 ]]; then
 		STATUS=1
+		FAILCOUNT=$((FAILCOUNT+1))
 	fi
 
 	blue " * "
@@ -80,7 +82,7 @@ if [[ $STATUS -eq 0 ]]; then
 	green "                                ---------------------------------------------" && echo
 else
 	red "                                ---------------------------------------------" && echo
-	red "                                [1;31mSome tests failed[0m" && echo
+	red "                                [1;31m$FAILCOUNT tests failed[0m" && echo
 	red "                                ---------------------------------------------" && echo
 fi
 

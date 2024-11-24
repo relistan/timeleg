@@ -17,14 +17,14 @@ char tz[LEN_TIMEZONE] = "";
 char *get_month(char *month);
 char *get_day(char *month);
 char* get_time(char* time);
+
+//#define YY_DEBUG 1
 %}
 
-# 11/24/2021 12:00 PM
-
 # ENTRYPOINT
-doc = line eof
-line = (date | .)+ 
-date = time? ignored* date_any ignored* time? tz? 										{
+doc  = line+ eof
+line = (date | anything)* eol
+date = time? ignored* date_any ignored* time? ignored* tz?	        					{
 	   																						printf("%s-%s-%s %s %s\n", year, get_month(month), get_day(day), get_time(time), tz);
 																							month[0] = '\0'; day[0] = '\0'; year[0] = '\0'; time[0] = '\0'; tz[0] = '\0';
 	   																					}
@@ -37,8 +37,8 @@ date_iso      = (year '-' month '-' day [T ] time time_millis? tz) | (year '-' m
 # Months -----
 month = < ( month_long | month_short | month_numeric ) >  								{ strncpy((char *)(&month), yytext, LEN_MONTH); }
 
-month_short   = ('Jan' | 'Feb' | 'Mar' | 'Apr' | 'May' | 'Jun' | 'Jul' | 'Aug' | 'Sep' | 'Oct' | 'Nov' | 'Dec')
-month_long    = ('January' | 'February' | 'March' | 'April' | 'May' | 'June' | 'July' | 'August' | 'September' | 'October' | 'November' | 'December')
+month_short   = ( 'Jan' | 'Feb' | 'Mar' | 'Apr' | 'May' | 'Jun' | 'Jul' | 'Aug' | 'Sep' | 'Oct' | 'Nov' | 'Dec' )
+month_long    = ( 'January' | 'February' | 'March' | 'April' | 'May' | 'June' | 'July' | 'August' | 'September' | 'October' | 'November' | 'December' )
 month_numeric = !year ( '12' | '11' | '10' | ('0'? '1') | ('0'? '2') | ('0'? '3') | ('0'? '4') | ('0'? '5') | ('0'? '6') | ('0'? '7') | ('0'? '8') | ('0'? '9') ) !':' 
 
 # Days -----
@@ -51,21 +51,19 @@ year_short = < [0-9][0-9] >																{ snprintf(year, LEN_YEAR, "20%s", yy
 # Times -----
 time        = < (time_short | time_full) >												{ strncpy((char *)(&time), yytext, LEN_TIME); }
 time_full   = ( [0-2]? [0-9] ':' [0-9][0-9] ':' [0-9][0-9] ) &( time_millis | (space* 'AM' | 'PM') )?
-time_short  = [0-2]? [0-9] ':' [0-9][0-9] &space ('AM' | 'PM')?
-time_millis = ([.,][0-9]+)
+time_short  = ( [0-2]? [0-9] ':' [0-9][0-9] ) &space ('AM' | 'PM')? 
+time_millis = ( [.,][0-9]+ )
 
 # Timezone -----
 tz = <('Z' | ( ('+' | '-') [0-9][0-9] (':'? [0-9][0-9]) ))>								{ strncpy((char *)(&tz), yytext, LEN_TIMEZONE); }
 
-
 # Misc -----
 sep = [\t ,/.\-]
 space = [\t ]
-ignored = !day !month !year !tz !time .
-
-# No character to match == EOF
+ignored = (space | !day !month !year !tz !time !eol .)
+anything = !eol .
 eof = !.
-eol = [\n\r]
+eol = ( '\n' | '\r\n' | '\n\r')
 
 %%
 
@@ -143,7 +141,7 @@ char* get_time(char* time) {
     }
 
     // Format the output string
-    snprintf(formatted, LEN_TIME, "%02d:%02d:%02d", hours, minutes, seconds);
+    snprintf((char *)formatted, LEN_TIME, "%02d:%02d:%02d", hours, minutes, seconds);
 	memcpy(time, formatted, LEN_TIME);
     return time;
 }
